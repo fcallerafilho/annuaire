@@ -150,34 +150,39 @@ class UserService:
 
     def list_users(self, search_term: Optional[str] = None) -> List[Dict]:
         """List all users with optional search"""
-        # Use the bind key to specify which database to use for Auth
-        Auth.__table__.info['bind_key'] = 'auth_db'
-        
-        query = db.session.query(User, Auth)\
-            .join(Auth, User.id == Auth.user_id)\
-            .filter(Auth.is_active == True)
+        # First get all users
+        users_query = User.query
         
         if search_term:
             search = f"%{search_term}%"
-            query = query.filter(
-                db.or_(
-                    User.username.ilike(search),
-                    Auth.first_name.ilike(search),
-                    Auth.last_name.ilike(search)
-                )
-            )
+            users_query = users_query.filter(User.username.ilike(search))
         
-        results = query.all()
-        return [
-            {
-                "id": user.id,
-                "username": user.username,
-                "role": user.role.value,
-                "first_name": auth.first_name,
-                "last_name": auth.last_name
-            }
-            for user, auth in results
-        ]
+        users = users_query.all()
+        
+        # Then get their auth details
+        user_ids = [user.id for user in users]
+        auth_records = Auth.query.filter(
+            Auth.user_id.in_(user_ids),
+            Auth.is_active == True
+        ).all()
+        
+        # Create a lookup dictionary for auth records
+        auth_lookup = {auth.user_id: auth for auth in auth_records}
+        
+        # Combine the data
+        result = []
+        for user in users:
+            auth = auth_lookup.get(user.id)
+            if auth and auth.is_active:  # Only include users with active auth records
+                result.append({
+                    "id": user.id,
+                    "username": user.username,
+                    "role": user.role.value,
+                    "first_name": auth.first_name,
+                    "last_name": auth.last_name
+                })
+        
+        return result
 
     def delete_user(self, user_id: int) -> bool:
         """Soft delete user by setting is_active to False"""
