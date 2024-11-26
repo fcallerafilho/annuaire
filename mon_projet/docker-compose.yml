@@ -1,0 +1,87 @@
+version: "3.8"
+services:
+  web:
+    build: .
+    environment:
+      - SECRET_KEY='test-key'
+    command: >
+      sh -c "
+        echo 'Waiting for databases to be ready...' &&
+        sleep 10 &&
+        python run.py
+      "
+    volumes:
+      - .:/app
+    ports:
+      - 5000:5000
+    depends_on:
+      users_db:
+        condition: service_healthy
+      auth_db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  users_db:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: users_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./users_db_init.sql:/docker-entrypoint-initdb.d/init.sql
+      - users_db_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-proot_password",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  auth_db:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: auth_db
+    ports:
+      - "3308:3306"
+    volumes:
+      - ./auth_db_init.sql:/docker-entrypoint-initdb.d/init.sql
+      - auth_db_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-proot_password",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  users_db_data:
+  auth_db_data:
+
+networks:
+  app-network:
+    driver: bridge
