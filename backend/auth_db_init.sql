@@ -14,3 +14,4 @@ CREATE TABLE IF NOT EXISTS auth (
     last_login DATETIME,
     is_active BOOLEAN DEFAULT TRUE
 );
+
