@@ -66,7 +66,6 @@ def list_users():
 def create_user():
     data = request.json
     try:
-        # Check if this is the first user being created
         if User.query.count() == 0:
             user = user_service.create_user(
                 username=data.get('username'),
@@ -75,7 +74,7 @@ def create_user():
                 password=data.get('password'),
                 adresse=data.get('adresse'),
                 num_phone=data.get('num_phone'),
-                role=UserRole.admin  # Force first user to be admin
+                role=UserRole.admin 
             )
             return jsonify({
                 "message": "Admin user created successfully",
@@ -83,7 +82,6 @@ def create_user():
                 "username": user.username
             }), 201
             
-        # For subsequent users, require admin authentication
         token = request.headers.get('Authorization')
         if not token or not token.startswith('Bearer '):
             return jsonify({"error": "No authentication token provided"}), 401
