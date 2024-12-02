@@ -19,7 +19,7 @@ before_script:
       default-libmysqlclient-dev 
       build-essential 
       python3-dev 
-      mysql-client
+      default-mysql-client
   - pip install --no-cache-dir -r requirements.txt
   - pip install pytest pytest-cov
   - |
