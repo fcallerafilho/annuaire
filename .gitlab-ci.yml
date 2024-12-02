@@ -17,6 +17,7 @@ services:
   - mysql:5.7
 
 before_script:
+  - apt-get update && apt-get install -y mysql-client
   - python -V
   - pip install virtualenv
   - virtualenv venv
