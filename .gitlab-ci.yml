@@ -12,24 +12,24 @@ stages:
     SECRET_KEY: 'test-key'
     USERS_DB_HOST: mysql
     AUTH_DB_HOST: mysql
-
-# Install dependencies and prepare the test environment
-before_script:
-  - apt-get update && apt-get install -y 
-      default-libmysqlclient-dev 
-      build-essential 
-      python3-dev 
-      default-mysql-client
-  - pip install --no-cache-dir -r requirements.txt
-  - pip install pytest pytest-cov
-  - |
-    # Wait for MySQL to be ready
-    for i in $(seq 1 20); do
-      mysql -h "$USERS_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
-      mysql -h "$AUTH_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
-      break
-      sleep 5
-    done
+  # Change working directory to backend
+  before_script:
+    - cd backend
+    - apt-get update && apt-get install -y 
+        default-libmysqlclient-dev 
+        build-essential 
+        python3-dev 
+        default-mysql-client
+    - pip install --no-cache-dir -r requirements.txt
+    - pip install pytest pytest-cov
+    - |
+      # Wait for MySQL to be ready
+      for i in $(seq 1 20); do
+        mysql -h "$USERS_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
+        mysql -h "$AUTH_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
+        break
+        sleep 5
+      done
 
 # Run unit tests
 unit_tests:
@@ -48,10 +48,10 @@ unit_tests:
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: test-reports/coverage.xml
-      junit: test-reports/junit.xml
+        path: backend/test-reports/coverage.xml
+      junit: backend/test-reports/junit.xml
     paths:
-      - test-reports/
+      - backend/test-reports/
 
 # Integration tests with databases
 integration_tests:
@@ -84,5 +84,5 @@ docker_build_test:
   services:
     - docker:20.10.16-dind
   script:
-    - docker build -t test-backend .
+    - docker build -f backend/Dockerfile -t test-backend backend
     - docker run --rm test-backend python -c "import sys; print(sys.version)"
