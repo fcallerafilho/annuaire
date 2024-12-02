@@ -43,9 +43,7 @@ test_app:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
     SECRET_KEY: "test-key"
   script:
-    - python -m pytest backend/tests/test_models.py -v
-    - python -m pytest backend/tests/test_user_service.py -v
-    - python -m pytest backend/tests/test_routes.py -v
+    - python -m pytest backend/tests/ -v
 
 coverage:
   stage: test
