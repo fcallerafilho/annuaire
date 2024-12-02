@@ -1,59 +1,58 @@
 image: python:3.7-slim
 
 variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
-  MYSQL_ROOT_PASSWORD: "root_password"
-
-cache:
-  paths:
-    - .pip-cache
-    - venv/
-
-stages:
-  - setup
-  - test
+  MYSQL_ROOT_PASSWORD: root_password
 
 services:
-  - mysql:5.7
+  - name: mysql:5.7
+    alias: users_db
+    variables:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: users_db
+  
+  - name: mysql:5.7
+    alias: auth_db
+    variables:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: auth_db
 
 before_script:
-  - apt-get update && apt-get install -y mysql-client
-  - python -V
-  - pip install virtualenv
-  - virtualenv venv
-  - source venv/bin/activate
-  - pip install -r backend/requirements.txt
+  - apt-get update
+  - apt-get install -y default-libmysqlclient-dev build-essential netcat
+  - pip install -r requirements.txt
   - pip install pytest pytest-cov
-  - until mysqladmin ping -h mysql --silent; do echo "Waiting for MySQL..."; sleep 2; done
+  # Attendre que users_db soit prêt
+  - |
+    echo "Waiting for users_db..."
+    while ! nc -z users_db 3306; do
+      sleep 1
+    done
+    echo "users_db is up"
+  # Attendre que auth_db soit prêt
+  - |
+    echo "Waiting for auth_db..."
+    while ! nc -z auth_db 3306; do
+      sleep 1
+    done
+    echo "auth_db is up"
 
-setup_database:
-  stage: setup
-  script:
-    - mysql -h mysql -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_users_db;"
-    - mysql -h mysql -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_auth_db;"
-
-test_models:
+test_app:
   stage: test
+  variables:
+    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@users_db:3306/users_db"
+    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
+    SECRET_KEY: "test-key"
   script:
-    - pytest backend/tests/test_models.py -v
-
-test_user_service:
-  stage: test
-  script:
-    - pytest backend/tests/test_user_service.py -v
-
-test_routes:
-  stage: test
-  script:
-    - pytest backend/tests/test_routes.py -v
+    - python -m pytest tests/test_models.py -v
+    - python -m pytest tests/test_user_service.py -v
+    - python -m pytest tests/test_routes.py -v
 
 coverage:
   stage: test
+  variables:
+    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@users_db:3306/users_db"
+    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
+    SECRET_KEY: "test-key"
   script:
-    - pytest backend/tests/ --cov=app --cov-report=term-missing --cov-report=xml
-  coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
-  artifacts:
-    reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage.xml
+    - python -m pytest tests/ --cov=app --cov-report=term-missing
+  coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
