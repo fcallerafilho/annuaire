@@ -10,6 +10,7 @@ cache:
     - venv/
 
 stages:
+  - setup
   - test
 
 services:
@@ -22,40 +23,31 @@ before_script:
   - source venv/bin/activate
   - pip install -r backend/requirements.txt
   - pip install pytest pytest-cov
+  - until mysqladmin ping -h mysql --silent; do echo "Waiting for MySQL..."; sleep 2; done
+
+setup_database:
+  stage: setup
+  script:
+    - mysql -h mysql -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_users_db;"
+    - mysql -h mysql -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_auth_db;"
 
 test_models:
   stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
   script:
     - pytest backend/tests/test_models.py -v
 
 test_user_service:
   stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
   script:
     - pytest backend/tests/test_user_service.py -v
 
 test_routes:
   stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
   script:
     - pytest backend/tests/test_routes.py -v
 
 coverage:
   stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
   script:
     - pytest backend/tests/ --cov=app --cov-report=term-missing --cov-report=xml
   coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
