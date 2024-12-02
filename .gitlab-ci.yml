@@ -20,7 +20,7 @@ before_script:
   - pip install virtualenv
   - virtualenv venv
   - source venv/bin/activate
-  - pip install -r requirements.txt
+  - pip install -r backend/requirements.txt
   - pip install pytest pytest-cov
 
 test_models:
@@ -30,7 +30,7 @@ test_models:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
     SECRET_KEY: "test-key"
   script:
-    - pytest tests/test_models.py -v
+    - pytest backend/tests/test_models.py -v
 
 test_user_service:
   stage: test
@@ -39,7 +39,7 @@ test_user_service:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
     SECRET_KEY: "test-key"
   script:
-    - pytest tests/test_user_service.py -v
+    - pytest backend/tests/test_user_service.py -v
 
 test_routes:
   stage: test
@@ -48,7 +48,7 @@ test_routes:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
     SECRET_KEY: "test-key"
   script:
-    - pytest tests/test_routes.py -v
+    - pytest backend/tests/test_routes.py -v
 
 coverage:
   stage: test
@@ -57,7 +57,7 @@ coverage:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
     SECRET_KEY: "test-key"
   script:
-    - pytest tests/ --cov=app --cov-report=term-missing --cov-report=xml
+    - pytest backend/tests/ --cov=app --cov-report=term-missing --cov-report=xml
   coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
   artifacts:
     reports:
