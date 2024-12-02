@@ -5,13 +5,16 @@ stages:
 .test_template: &test_template
   image: python:3.7-slim
   services:
-    - mysql:5.7
+    - name: mysql:5.7
+      alias: users_db
+    - name: mysql:5.7
+      alias: auth_db
   variables:
     MYSQL_ROOT_PASSWORD: root_password
-    MYSQL_DATABASE: test_db
+    MYSQL_DATABASE: users_db
+    MYSQL_USER: root
     SECRET_KEY: 'test-key'
-    USERS_DB_HOST: mysql
-    AUTH_DB_HOST: mysql
+
   # Change working directory to backend
   before_script:
     - cd backend
@@ -21,14 +24,23 @@ stages:
         python3-dev 
         default-mysql-client
     - pip install --no-cache-dir -r requirements.txt
-    - pip install pytest pytest-cov
+    - pip install pytest pytest-cov pymysql
     - |
       # Wait for MySQL to be ready
-      for i in $(seq 1 20); do
-        mysql -h "$USERS_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
-        mysql -h "$AUTH_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
-        break
-        sleep 5
+      apt-get install -y netcat-openbsd
+      for service in users_db auth_db; do
+        max_attempts=30
+        attempt=0
+        while ! nc -z "$service" 3306; do
+          attempt=$((attempt+1))
+          if [ $attempt -ge $max_attempts ]; then
+            echo "Error: $service not ready after $max_attempts attempts"
+            exit 1
+          fi
+          echo "Waiting for $service to be ready... (Attempt $attempt)"
+          sleep 2
+        done
+        echo "$service is ready"
       done
 
 # Run unit tests
@@ -37,7 +49,12 @@ unit_tests:
   <<: *test_template
   script:
     - mkdir -p test-reports
-    - pytest 
+    - |
+      # Modify the database connection configuration for testing
+      sed -i "s|'mysql+pymysql://root:root_password@users_db/users_db'|'mysql+pymysql://root:root_password@127.0.0.1/users_db'|g" app/__init__.py
+      sed -i "s|'users_db': 'mysql+pymysql://root:root_password@users_db/users_db'|'users_db': 'mysql+pymysql://root:root_password@127.0.0.1/users_db'|g" app/__init__.py
+      sed -i "s|'auth_db': 'mysql+pymysql://root:root_password@auth_db/auth_db'|'auth_db': 'mysql+pymysql://root:root_password@127.0.0.1/auth_db'|g" app/__init__.py
+    - PYTHONPATH=. pytest 
         --cov=. 
         --cov-report=xml:test-reports/coverage.xml 
         --cov-report=html:test-reports/coverage-html 
@@ -57,16 +74,13 @@ unit_tests:
 integration_tests:
   stage: test
   <<: *test_template
-  services:
-    - name: mysql:5.7
-      alias: users_db
-    - name: mysql:5.7
-      alias: auth_db
-  variables:
-    USERS_DB_HOST: users_db
-    AUTH_DB_HOST: auth_db
   script:
-    - pytest tests/integration
+    - |
+      # Modify the database connection configuration for testing
+      sed -i "s|'mysql+pymysql://root:root_password@users_db/users_db'|'mysql+pymysql://root:root_password@127.0.0.1/users_db'|g" app/__init__.py
+      sed -i "s|'users_db': 'mysql+pymysql://root:root_password@users_db/users_db'|'users_db': 'mysql+pymysql://root:root_password@127.0.0.1/users_db'|g" app/__init__.py
+      sed -i "s|'auth_db': 'mysql+pymysql://root:root_password@auth_db/auth_db'|'auth_db': 'mysql+pymysql://root:root_password@127.0.0.1/auth_db'|g" app/__init__.py
+    - PYTHONPATH=. pytest tests/integration
   
 # Performance and security checks
 performance_checks:
