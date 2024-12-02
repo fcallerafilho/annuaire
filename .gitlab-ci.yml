@@ -1,66 +1,88 @@
-image: python:3.7-slim
-
-variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
-  MYSQL_ROOT_PASSWORD: "root_password"
-
-cache:
-  paths:
-    - .pip-cache
-    - venv/
-
 stages:
   - test
 
-services:
-  - mysql:5.7
+# Define a template for the test environment
+.test_template: &test_template
+  image: python:3.7-slim
+  services:
+    - mysql:5.7
+  variables:
+    MYSQL_ROOT_PASSWORD: root_password
+    MYSQL_DATABASE: test_db
+    SECRET_KEY: 'test-key'
+    USERS_DB_HOST: mysql
+    AUTH_DB_HOST: mysql
 
+# Install dependencies and prepare the test environment
 before_script:
-  - python -V
-  - pip install virtualenv
-  - virtualenv venv
-  - source venv/bin/activate
-  - pip install -r backend/requirements.txt
+  - apt-get update && apt-get install -y 
+      default-libmysqlclient-dev 
+      build-essential 
+      python3-dev 
+      mysql-client
+  - pip install --no-cache-dir -r requirements.txt
   - pip install pytest pytest-cov
+  - |
+    # Wait for MySQL to be ready
+    for i in $(seq 1 20); do
+      mysql -h "$USERS_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
+      mysql -h "$AUTH_DB_HOST" -u root -p"$MYSQL_ROOT_PASSWORD" -e "SELECT 1" >/dev/null 2>&1 && 
+      break
+      sleep 5
+    done
 
-test_models:
+# Run unit tests
+unit_tests:
   stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
+  <<: *test_template
   script:
-    - pytest backend/tests/test_models.py -v
-
-test_user_service:
-  stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
-  script:
-    - pytest backend/tests/test_user_service.py -v
-
-test_routes:
-  stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
-  script:
-    - pytest backend/tests/test_routes.py -v
-
-coverage:
-  stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql/test_users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql/test_users_db","auth_db":"mysql+pymysql://root:root_password@mysql/test_auth_db"}'
-    SECRET_KEY: "test-key"
-  script:
-    - pytest backend/tests/ --cov=app --cov-report=term-missing --cov-report=xml
-  coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
+    - mkdir -p test-reports
+    - pytest 
+        --cov=. 
+        --cov-report=xml:test-reports/coverage.xml 
+        --cov-report=html:test-reports/coverage-html 
+        --junitxml=test-reports/junit.xml
+  coverage: '/TOTAL.+ ([0-9]{1,3}%)/'
   artifacts:
+    when: always
     reports:
       coverage_report:
         coverage_format: cobertura
-        path: coverage.xml
+        path: test-reports/coverage.xml
+      junit: test-reports/junit.xml
+    paths:
+      - test-reports/
+
+# Integration tests with databases
+integration_tests:
+  stage: test
+  <<: *test_template
+  services:
+    - name: mysql:5.7
+      alias: users_db
+    - name: mysql:5.7
+      alias: auth_db
+  variables:
+    USERS_DB_HOST: users_db
+    AUTH_DB_HOST: auth_db
+  script:
+    - pytest tests/integration
+  
+# Performance and security checks
+performance_checks:
+  stage: test
+  <<: *test_template
+  script:
+    - pip install bandit safety
+    - bandit -r .
+    - safety check
+
+# Optional Docker build verification
+docker_build_test:
+  stage: test
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  script:
+    - docker build -t test-backend .
+    - docker run --rm test-backend python -c "import sys; print(sys.version)"
