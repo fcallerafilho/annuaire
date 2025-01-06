@@ -1,11 +1,13 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 
 db = SQLAlchemy()
 
 def create_app():
     app = Flask(__name__)
-    
+    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+
     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root_password@users_db/users_db'
     app.config['SQLALCHEMY_BINDS'] = {
         'users_db': 'mysql+pymysql://root:root_password@users_db/users_db',
@@ -41,6 +43,8 @@ def init_first_user(app):
                 num_phone='1234567890',
                 role=UserRole.admin
             )
+
+            
             print("Premier utilisateur admin créé avec succès!")
             print("Username: admin")
             print("Password: admin123")
