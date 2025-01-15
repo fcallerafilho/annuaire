@@ -1,4 +1,4 @@
-version: "3.8"
+version: "3.2"
 services:
   web:
     build: .
@@ -15,10 +15,8 @@ services:
     ports:
       - 5000:5000
     depends_on:
-      users_db:
-        condition: service_healthy
-      auth_db:
-        condition: service_healthy
+      - users_db
+      - auth_db
     networks:
       - app-network
 
@@ -33,17 +31,7 @@ services:
       - ./users_db_init.sql:/docker-entrypoint-initdb.d/init.sql
       - users_db_data:/var/lib/mysql
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-u",
-          "root",
-          "-proot_password",
-        ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -61,17 +49,7 @@ services:
       - ./auth_db_init.sql:/docker-entrypoint-initdb.d/init.sql
       - auth_db_data:/var/lib/mysql
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mysqladmin",
-          "ping",
-          "-h",
-          "localhost",
-          "-u",
-          "root",
-          "-proot_password",
-        ]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
       interval: 10s
       timeout: 5s
       retries: 5
