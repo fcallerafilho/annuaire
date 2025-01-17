@@ -1,10 +1,13 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from app.middleware.logging import SecurityLogger
+
 
 db = SQLAlchemy()
 
 def create_app():
     app = Flask(__name__)
+    app.security_logger = SecurityLogger()
     
     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root_password@users_db/users_db'
     app.config['SQLALCHEMY_BINDS'] = {

@@ -1,7 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from app.services.user_service import UserService, UserRole
 from functools import wraps
 from app.models.user import User, UserRole
+import jwt
+import json
+
 
 api_bp = Blueprint('api', __name__)
 user_service = UserService()
@@ -39,6 +42,36 @@ def admin_required(f):
         
         request.user = payload
         return f(*args, **kwargs)
+    return decorated_function
+
+def admin_or_self_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user_id = kwargs.get('user_id')
+        token = request.headers.get('Authorization')
+
+        if not token or not token.startswith('Bearer '):
+            return jsonify({"error": "No authentication token provided"}), 401
+
+        token = token.split('Bearer ')[1]
+        payload = user_service.verify_token(token)
+        if not payload:
+            return jsonify({"error": "Invalid or expired token"}), 401
+
+        current_user_id = payload.get('user_id')
+        if current_user_id is None:
+            return jsonify({"error": "User ID not found in token"}), 401
+
+        if user_id == int(current_user_id):
+            request.user = payload
+            return f(*args, **kwargs)
+
+        if payload.get('role') != UserRole.admin.value:
+            return jsonify({"error": "Admin privileges required"}), 403
+
+        request.user = payload
+        return f(*args, **kwargs)
+
     return decorated_function
 
 @api_bp.route('/login', methods=['POST'])
@@ -143,8 +176,42 @@ def demote_user(user_id):
     return jsonify({"error": "Failed to demote user"}), 400
 
 @api_bp.route('/users/<int:user_id>', methods=['DELETE'])
-@admin_required
+@admin_or_self_required # by pass the admin requirement if you want to close your acount.
 def delete_user(user_id):
     if user_service.delete_user(user_id):
         return jsonify({"message": "User deleted successfully"}), 200
     return jsonify({"error": "Failed to delete user"}), 404
+
+@api_bp.route('/logs', methods=['POST'])
+@login_required     
+def receive_frontend_logs():
+    try:
+        user_info = request.user
+
+        logs = request.json.get('logs', [])
+        
+        for log in logs:
+            log['user_id'] = user_info.get('user_id')
+            log['user_role'] = user_info.get('role')
+            
+            # Logging avec le logger de sécurité
+            current_app.security_logger.logger.info(
+                f"Frontend log: {json.dumps(log)}",
+                extra={
+                    'user_id': user_info.get('user_id'),
+                    'username': user_info.get('username'),
+                    'ip': request.remote_addr
+                }
+            )
+
+        return jsonify({"status": "success", "logged": len(logs)}), 200
+        
+    except Exception as e:
+        current_app.security_logger.logger.error(
+            f"Error processing logs: {str(e)}",
+            extra={
+                'user_id': request.user.get('user_id') if request.user else None,
+                'ip': request.remote_addr
+            }
+        )
+        return jsonify({"error": "Failed to process logs"}), 500
