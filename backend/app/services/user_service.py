@@ -192,3 +192,30 @@ class UserService:
             db.session.commit()
             return True
         return False
+    
+    def update_profile(self, user_id: int, profile_data: dict) -> Optional[dict]:
+        """Update user profile information"""
+        try:
+            auth = Auth.query.filter_by(user_id=user_id).first()
+            if not auth:
+                return None
+                
+            # Update allowed fields
+            for field in ['first_name', 'last_name', 'adresse', 'num_phone']:
+                if field in profile_data:
+                    setattr(auth, field, profile_data[field])
+            
+            db.session.commit()
+            return auth.to_dict()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            raise Exception(f"Error updating profile: {str(e)}")
+
+    def delete_user(self, user_id: int) -> bool:
+        """Soft delete user by setting is_active to False"""
+        auth = Auth.query.filter_by(user_id=user_id).first()
+        if auth:
+            auth.is_active = False
+            db.session.commit()
+            return True
+        return False

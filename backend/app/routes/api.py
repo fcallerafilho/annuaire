@@ -99,6 +99,7 @@ def list_users():
 def create_user():
     data = request.json
     try:
+        # Case 1: First user creation (becomes admin)
         if User.query.count() == 0:
             user = user_service.create_user(
                 username=data.get('username'),
@@ -114,11 +115,31 @@ def create_user():
                 "id": user.id, 
                 "username": user.username
             }), 201
-            
+
+        # Check if there's an auth token
         token = request.headers.get('Authorization')
-        if not token or not token.startswith('Bearer '):
-            return jsonify({"error": "No authentication token provided"}), 401
         
+        # Case 2: User self-registration (no token)
+        if not token:
+            user = user_service.create_user(
+                username=data.get('username'),
+                first_name=data.get('first_name'),
+                last_name=data.get('last_name'),
+                password=data.get('password'),
+                adresse=data.get('adresse'),
+                num_phone=data.get('num_phone'),
+                role=UserRole.user  # Always create as normal user
+            )
+            return jsonify({
+                "message": "User registered successfully",
+                "id": user.id,
+                "username": user.username
+            }), 201
+
+        # Case 3: Admin creating a user
+        if not token.startswith('Bearer '):
+            return jsonify({"error": "Invalid token format"}), 401
+            
         token = token.split('Bearer ')[1]
         payload = user_service.verify_token(token)
         if not payload:
@@ -130,17 +151,6 @@ def create_user():
         role = data.get('role', 'user')
         if role not in ['user', 'admin']:
             role = 'user'
-            
-        user = user_service.create_user(
-            username=data.get('username'),
-            first_name=data.get('first_name'),
-            last_name=data.get('last_name'),
-            password=data.get('password'),
-            adresse=data.get('adresse'),
-            num_phone=data.get('num_phone'),
-            role=UserRole(role)
-        )
-        return jsonify({"id": user.id, "username": user.username}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -215,3 +225,39 @@ def receive_frontend_logs():
             }
         )
         return jsonify({"error": "Failed to process logs"}), 500
+    
+@api_bp.route('/users/<int:user_id>/profile', methods=['PUT'])
+@admin_or_self_required
+def update_profile(user_id):
+    """Update user profile information"""
+    print(f"Received profile update request for user_id: {user_id}")
+    print(f"Request data: {request.json}")
+    
+    data = request.json
+    if not data:
+        print("No JSON data in request")
+        return jsonify({"error": "No data provided"}), 400
+    
+    # Validate required fields
+    allowed_fields = {'first_name', 'last_name', 'adresse', 'num_phone'}
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+    
+    print(f"Filtered update data: {update_data}")
+    
+    if not update_data:
+        print("No valid fields found in request data")
+        return jsonify({"error": "No valid fields to update"}), 400
+        
+    try:
+        print("Attempting to update profile...")
+        updated_profile = user_service.update_profile(user_id, update_data)
+        
+        if not updated_profile:
+            print("User not found or inactive")
+            return jsonify({"error": "User not found or inactive"}), 404
+            
+        print(f"Profile updated successfully: {updated_profile}")
+        return jsonify(updated_profile), 200
+    except Exception as e:
+        print(f"Error during profile update: {str(e)}")
+        return jsonify({"error": str(e)}), 400

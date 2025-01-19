@@ -2,7 +2,6 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from app.middleware.logging import SecurityLogger
 
-
 db = SQLAlchemy()
 
 def create_app():

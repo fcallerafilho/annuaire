@@ -1,17 +1,23 @@
-# Use an official Python runtime as a parent image
 FROM python:3.7-slim
 
-# Set the working directory in the container to /app
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-ADD . /app
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    default-libmysqlclient-dev \
+    build-essential \
+    pkg-config \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install any needed packages specified in requirements.txt
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Make port 5000 available to the world outside this container
+# Copy the rest of the application
+COPY . .
+
 EXPOSE 5000
 
-# Run run.py when the container launches
-CMD ["python", "run.py"]
+ENV PYTHONUNBUFFERED=1

@@ -1,59 +1,67 @@
 services:
-  web:
+  backend:
     build: .
     environment:
       - SECRET_KEY='test-key'
+      - DATABASE_URL=mysql+pymysql://root:root_password@users_db:3306/users_db
+      - AUTH_DB_URL=mysql+pymysql://root:root_password@auth_db:3306/auth_db
     command: >
       sh -c "
-        echo 'Waiting for databases to be ready...' &&
-        sleep 10 &&
+        apt-get update &&
+        apt-get install -y netcat-openbsd &&
+        echo 'Waiting for MySQL databases...' &&
+        while ! nc -z users_db 3306; do
+          echo 'Waiting for users_db...'
+          sleep 3
+        done &&
+        while ! nc -z auth_db 3306; do
+          echo 'Waiting for auth_db...'
+          sleep 3
+        done &&
+        echo 'All databases are up!' &&
+        sleep 5 &&
         python run.py
       "
     volumes:
       - .:/app
     ports:
-      - 5050:5000
+      - "5050:5000"
     depends_on:
       - users_db
       - auth_db
     networks:
       - app-network
+    restart: on-failure
 
   users_db:
     image: mysql:5.7
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: users_db
-    ports:
-      - "3307:3306"
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=users_db
+    command: --default-authentication-plugin=mysql_native_password
     volumes:
       - ./users_db_init.sql:/docker-entrypoint-initdb.d/init.sql
       - users_db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    ports:
+      - "3307:3306"
     networks:
       - app-network
+    restart: always
 
   auth_db:
     image: mysql:5.7
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: auth_db
-    ports:
-      - "3308:3306"
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=auth_db
+    command: --default-authentication-plugin=mysql_native_password
     volumes:
       - ./auth_db_init.sql:/docker-entrypoint-initdb.d/init.sql
       - auth_db_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    ports:
+      - "3308:3306"
     networks:
       - app-network
+    restart: always
 
 volumes:
   users_db_data:
