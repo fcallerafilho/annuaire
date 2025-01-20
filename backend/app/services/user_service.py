@@ -30,7 +30,7 @@ class UserService:
         return calculated_hash == hashed
 
     def create_user(self, username: str, first_name: str, last_name: str, 
-                   password: str, adresse: str, num_phone: str, role: UserRole = UserRole.user) -> User:
+               password: str, adresse: str, num_phone: str, role: UserRole = UserRole.user) -> User:
         """Create a new user with authentication details"""
         try:
             existing_user = User.query.filter_by(username=username).first()
@@ -38,6 +38,10 @@ class UserService:
                 raise Exception("Username already exists")
 
             hashed_password, salt = self._hash_password(password)
+            
+            # Convert string role to UserRole enum if a string was passed
+            if isinstance(role, str):
+                role = UserRole(role)
             
             new_user = User(username=username, role=role)
             db.session.add(new_user)

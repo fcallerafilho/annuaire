@@ -108,7 +108,7 @@ def create_user():
                 password=data.get('password'),
                 adresse=data.get('adresse'),
                 num_phone=data.get('num_phone'),
-                role=UserRole.admin 
+                role=UserRole.admin
             )
             return jsonify({
                 "message": "Admin user created successfully",
@@ -116,11 +116,25 @@ def create_user():
                 "username": user.username
             }), 201
 
-        # Check if there's an auth token
+        # Get token if exists
         token = request.headers.get('Authorization')
         
-        # Case 2: User self-registration (no token)
-        if not token:
+        # Case 2: Admin creating a user
+        if token and token.startswith('Bearer '):
+            token = token.split('Bearer ')[1]
+            payload = user_service.verify_token(token)
+            
+            if not payload:
+                return jsonify({"error": "Invalid or expired token"}), 401
+            
+            if payload.get('role') != 'admin':
+                return jsonify({"error": "Admin privileges required"}), 403
+            
+            # Admin can specify the role
+            role = data.get('role', 'user')
+            if role not in ['user', 'admin']:
+                role = 'user'
+                
             user = user_service.create_user(
                 username=data.get('username'),
                 first_name=data.get('first_name'),
@@ -128,29 +142,30 @@ def create_user():
                 password=data.get('password'),
                 adresse=data.get('adresse'),
                 num_phone=data.get('num_phone'),
-                role=UserRole.user  # Always create as normal user
+                role=UserRole[role]
             )
             return jsonify({
-                "message": "User registered successfully",
+                "message": "User created successfully",
                 "id": user.id,
                 "username": user.username
             }), 201
-
-        # Case 3: Admin creating a user
-        if not token.startswith('Bearer '):
-            return jsonify({"error": "Invalid token format"}), 401
             
-        token = token.split('Bearer ')[1]
-        payload = user_service.verify_token(token)
-        if not payload:
-            return jsonify({"error": "Invalid or expired token"}), 401
-        
-        if payload.get('role') != 'admin':
-            return jsonify({"error": "Admin privileges required"}), 403
-        
-        role = data.get('role', 'user')
-        if role not in ['user', 'admin']:
-            role = 'user'
+        # Case 3: Self-registration (no token or invalid token format)
+        user = user_service.create_user(
+            username=data.get('username'),
+            first_name=data.get('first_name'),
+            last_name=data.get('last_name'),
+            password=data.get('password'),
+            adresse=data.get('adresse'),
+            num_phone=data.get('num_phone'),
+            role=UserRole.user  # Force regular user for self-registration
+        )
+        return jsonify({
+            "message": "User registered successfully",
+            "id": user.id,
+            "username": user.username
+        }), 201
+            
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
