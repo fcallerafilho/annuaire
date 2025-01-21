@@ -79,16 +79,8 @@ coverage:
 
 deploy:
   stage: deploy
-  image: docker:20.10.16
-  services:
-    - name: docker:20.10.16-dind
-      alias: docker
-  variables:
-    DOCKER_TLS_CERTDIR: ""
-    DOCKER_HOST: tcp://docker:2375
-  before_script:
-    - apk add --no-cache docker-compose
-    - docker info
+  tags:
+    - shell
   script:
     - cd backend
     - docker-compose -f docker-compose.yml down --remove-orphans
