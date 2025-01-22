@@ -9,13 +9,15 @@ variables:
 
 services:
   - name: mysql:5.7
-    alias: mysql-users
+    alias: users_db
+    command: ["mysqld", "--port=3307"]
     variables:
       MYSQL_DATABASE: users_db
       MYSQL_ROOT_PASSWORD: root_password
 
   - name: mysql:5.7
-    alias: mysql-auth
+    alias: auth_db
+    command: ["mysqld", "--port=3308"]
     variables:
       MYSQL_DATABASE: auth_db
       MYSQL_ROOT_PASSWORD: root_password
@@ -25,26 +27,25 @@ services:
     - echo "Starting setup..."
     # Install dependencies with sudo
     - sudo apt-get update
-    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd python3 python3-pip
-    # Ensure pip is installed and updated
+    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd python3 python3-pip mysql-client
+    # Debug MySQL
+    - echo "Testing MySQL connections..."
+    - mysqladmin -h 127.0.0.1 -P 3307 -u root -proot_password ping || true
+    - mysqladmin -h 127.0.0.1 -P 3308 -u root -proot_password ping || true
+    # Install Python requirements
     - sudo python3 -m pip install --upgrade pip
     - sudo python3 -m pip install -r backend/requirements.txt
     - sudo python3 -m pip install pytest pytest-cov
-    # Debug networking
-    - echo "Checking service environment variables..."
-    - env | grep MYSQL
-    # Add entries to /etc/hosts with sudo
-    - sudo bash -c 'echo "127.0.0.1 mysql-users" >> /etc/hosts'
-    - sudo bash -c 'echo "127.0.0.1 mysql-auth" >> /etc/hosts'
-    # Wait for MySQL services
+    # Wait for MySQL services with verbose output
     - |
       echo "Waiting for MySQL services..."
       for i in {1..30}; do
-        if nc -z mysql-users 3307 && nc -z mysql-auth 3308; then
+        echo "Attempt $i: Checking MySQL connections..."
+        if nc -zv 127.0.0.1 3307 && nc -zv 127.0.0.1 3308; then
           echo "MySQL services are up!"
           break
         fi
-        echo "Waiting for MySQL services... attempt $i"
+        echo "Services not ready. Waiting..."
         sleep 2
       done
 
@@ -53,8 +54,8 @@ test_app:
   tags:
     - shell
   variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql-users:3307/users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql-users:3307/users_db","auth_db":"mysql+pymysql://root:root_password@mysql-auth:3308/auth_db"}'
+    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@127.0.0.1:3307/users_db"
+    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@127.0.0.1:3307/users_db","auth_db":"mysql+pymysql://root:root_password@127.0.0.1:3308/auth_db"}'
     SECRET_KEY: "test-key"
   <<: *before_script_definition
   script:
@@ -66,8 +67,8 @@ coverage:
   tags:
     - shell
   variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@mysql-users:3307/users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@mysql-users:3307/users_db","auth_db":"mysql+pymysql://root:root_password@mysql-auth:3308/auth_db"}'
+    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@127.0.0.1:3307/users_db"
+    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@127.0.0.1:3307/users_db","auth_db":"mysql+pymysql://root:root_password@127.0.0.1:3308/auth_db"}'
     SECRET_KEY: "test-key"
   <<: *before_script_definition
   script:
