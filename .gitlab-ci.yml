@@ -13,7 +13,7 @@ test_app:
     SECRET_KEY: "test-key"
   before_script:
     - sudo apt-get update
-    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd python3-pip
+    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd python3-pip python3
     - sudo pip3 install -r backend/requirements.txt
     - sudo pip3 install pytest pytest-cov
     # Wait for MySQL on port 3307
@@ -31,7 +31,7 @@ test_app:
       done
       echo "auth_db is up"
   script:
-    - python -m pytest backend/tests/ -v
+    - python3 -m pytest backend/tests/ -v
 
 coverage:
   stage: test
@@ -41,7 +41,7 @@ coverage:
     SECRET_KEY: "test-key"
   before_script:
     - sudo apt-get update
-    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd python3-pip
+    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd python3-pip python3
     - sudo pip3 install -r backend/requirements.txt
     - sudo pip3 install pytest pytest-cov
     # Wait for MySQL on port 3307
@@ -59,7 +59,7 @@ coverage:
       done
       echo "auth_db is up"
   script:
-    - python -m pytest backend/tests/ --cov=app --cov-report=term-missing
+    - python3 -m pytest backend/tests/ --cov=app --cov-report=term-missing
   coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
 
 deploy:
