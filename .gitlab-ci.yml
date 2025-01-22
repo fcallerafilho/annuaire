@@ -27,8 +27,8 @@ test_app:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
     SECRET_KEY: "test-key"
   before_script:
-    - apt-get update
-    - apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
+    - sudo apt-get update
+    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
     - pip install -r backend/requirements.txt
     - pip install pytest pytest-cov
     # Wait for users_db
@@ -55,8 +55,8 @@ coverage:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
     SECRET_KEY: "test-key"
   before_script:
-    - apt-get update
-    - apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
+    - sudo apt-get update
+    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
     - pip install -r backend/requirements.txt
     - pip install pytest pytest-cov
     # Wait for users_db
