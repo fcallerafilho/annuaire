@@ -20,15 +20,11 @@ services:
       MYSQL_ROOT_PASSWORD: root_password
       MYSQL_DATABASE: auth_db
 
-test_app:
-  stage: test
-  variables:
-    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@users_db:3306/users_db"
-    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
-    SECRET_KEY: "test-key"
+.before_script_template: &before_script_definition
   before_script:
-    - apt-get update
-    - apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
+    # Run apt commands as root
+    - apt-get update || (echo "Retrying with sudo..." && sudo apt-get update)
+    - apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd || sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
     - pip install -r backend/requirements.txt
     - pip install pytest pytest-cov
     # Wait for users_db
@@ -45,6 +41,14 @@ test_app:
         sleep 1
       done
       echo "auth_db is up"
+
+test_app:
+  stage: test
+  variables:
+    SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@users_db:3306/users_db"
+    SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
+    SECRET_KEY: "test-key"
+  <<: *before_script_definition
   script:
     - python -m pytest backend/tests/ -v
 
@@ -54,25 +58,7 @@ coverage:
     SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@users_db:3306/users_db"
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db:3306/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db:3306/auth_db"}'
     SECRET_KEY: "test-key"
-  before_script:
-    - apt-get update
-    - apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
-    - pip install -r backend/requirements.txt
-    - pip install pytest pytest-cov
-    # Wait for users_db
-    - |
-      echo "Waiting for users_db..."
-      while ! nc -z users_db 3306; do
-        sleep 1
-      done
-      echo "users_db is up"
-    # Wait for auth_db
-    - |
-      echo "Waiting for auth_db..."
-      while ! nc -z auth_db 3306; do
-        sleep 1
-      done
-      echo "auth_db is up"
+  <<: *before_script_definition
   script:
     - python -m pytest backend/tests/ --cov=app --cov-report=term-missing
   coverage: "/TOTAL.+ ([0-9]{1,3}%)/"
