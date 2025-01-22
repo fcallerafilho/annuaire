@@ -6,6 +6,7 @@ import hashlib
 import jwt
 from typing import Optional, List, Dict
 from flask import current_app
+from typing import Optional
 
 class UserService:
     def __init__(self):
@@ -119,20 +120,45 @@ class UserService:
         except jwt.InvalidTokenError:
             return None
 
-    def change_password(self, user_id: int, old_password: str, new_password: str) -> bool:
+    def change_password(self, user_id: int, old_password: Optional[str], new_password: str, require_old: bool = True) -> bool:
         """Change user password"""
+        print(f"Attempting password change for user_id: {user_id}, require_old: {require_old}")
+        
         auth = Auth.query.filter_by(user_id=user_id).first()
         if not auth:
-            return False
+            print(f"No auth record found for user_id: {user_id}")
+            raise Exception("User not found")
+        
+        if not auth.is_active:
+            print(f"User {user_id} is inactive")
+            raise Exception("Cannot change password for inactive user")
 
-        if not self._verify_password(old_password, auth.hashed_password, auth.salt):
-            return False
+        if require_old:
+            print("Verifying old password")
+            if not old_password:
+                raise Exception("Old password is required")
+                
+            if not self._verify_password(old_password, auth.hashed_password, auth.salt):
+                print("Old password verification failed")
+                return False
+            print("Old password verified successfully")
 
+        print("Generating new password hash")
         hashed_password, salt = self._hash_password(new_password)
-        auth.hashed_password = hashed_password
-        auth.salt = salt
-        db.session.commit()
-        return True
+        
+        try:
+            auth.hashed_password = hashed_password
+            auth.salt = salt
+            db.session.commit()
+            print(f"Password successfully updated for user {user_id}")
+            return True
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            print(f"Database error during password update: {str(e)}")
+            raise Exception(f"Database error: {str(e)}")
+        except Exception as e:
+            print(f"Unexpected error during password update: {str(e)}")
+            raise
 
     def promote_user(self, user_id: int) -> bool:
         """Promote user to admin"""

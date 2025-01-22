@@ -172,19 +172,70 @@ def create_user():
 @api_bp.route('/users/<int:user_id>/password', methods=['PUT'])
 @login_required
 def change_password(user_id):
+    print(f"Password change attempt for user_id: {user_id}")
+    print(f"Request made by user_id: {request.user['user_id']} with role: {request.user['role']}")
+    
     if request.user['user_id'] != user_id and request.user['role'] != UserRole.admin.value:
-        return jsonify({"error": "Unauthorized"}), 403
+        print(f"Unauthorized password change attempt: User {request.user['user_id']} tried to change password for user {user_id}")
+        return jsonify({
+            "error": "Unauthorized",
+            "details": "You must be either the user or an admin to change this password"
+        }), 403
     
     data = request.json
-    old_password = data.get('old_password')
+    print(f"Received password change data: {data}")
     new_password = data.get('new_password')
     
-    if not old_password or not new_password:
-        return jsonify({"error": "Missing password data"}), 400
+    if not new_password:
+        return jsonify({
+            "error": "Missing data",
+            "details": "New password is required"
+        }), 400
     
-    if user_service.change_password(user_id, old_password, new_password):
-        return jsonify({"message": "Password updated successfully"}), 200
-    return jsonify({"error": "Failed to update password"}), 400
+    # If it's the user changing their own password, require old password
+    if request.user['user_id'] == user_id:
+        print("User is changing their own password")
+        old_password = data.get('old_password')
+        if not old_password:
+            return jsonify({
+                "error": "Missing data",
+                "details": "Old password is required when changing your own password"
+            }), 400
+        try:
+            success = user_service.change_password(user_id, old_password, new_password, require_old=True)
+            if not success:
+                return jsonify({
+                    "error": "Authentication failed",
+                    "details": "The old password provided is incorrect"
+                }), 400
+        except Exception as e:
+            print(f"Error during self password change: {str(e)}")
+            return jsonify({
+                "error": "Password change failed",
+                "details": str(e)
+            }), 500
+    else:
+        # Admin changing someone else's password
+        print(f"Admin (user_id: {request.user['user_id']}) is changing password for user {user_id}")
+        try:
+            success = user_service.change_password(user_id, None, new_password, require_old=False)
+            if not success:
+                return jsonify({
+                    "error": "Password change failed",
+                    "details": "User not found or inactive"
+                }), 404
+        except Exception as e:
+            print(f"Error during admin password change: {str(e)}")
+            return jsonify({
+                "error": "Password change failed",
+                "details": str(e)
+            }), 500
+    
+    print(f"Password successfully changed for user {user_id}")
+    return jsonify({
+        "message": "Password updated successfully",
+        "user_id": user_id
+    }), 200
 
 @api_bp.route('/users/<int:user_id>/promote', methods=['PUT'])
 @admin_required
