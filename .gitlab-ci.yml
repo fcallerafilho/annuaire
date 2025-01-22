@@ -78,12 +78,13 @@ coverage:
 
 deploy:
   stage: deploy
-  image: docker/compose:latest
+  image: docker:latest
   tags:
     - docker
   before_script:
+    - apk add --no-cache docker-compose
     - cd /builds/annuaire/backend-ssi/backend
   script:
-    - docker compose down --remove-orphans
-    - docker compose up -d --build
+    - docker-compose down --remove-orphans || true
+    - docker-compose up -d --build
   when: manual
