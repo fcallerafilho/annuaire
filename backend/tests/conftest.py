@@ -6,10 +6,10 @@ def app():
     app = create_app()
     app.config.update({
         'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': "mysql+pymysql://root:root_password@mysql/test_users_db",
+        'SQLALCHEMY_DATABASE_URI': "mysql+pymysql://root:root_password@users_db/users_db",
         'SQLALCHEMY_BINDS': {
-            'users_db': 'mysql+pymysql://root:root_password@mysql/test_users_db',
-            'auth_db': 'mysql+pymysql://root:root_password@mysql/test_auth_db'
+            'users_db': 'mysql+pymysql://root:root_password@users_db/users_db',
+            'auth_db': 'mysql+pymysql://root:root_password@auth_db/auth_db'
         }
     })
     
