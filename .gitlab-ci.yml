@@ -28,9 +28,9 @@ test_app:
     SECRET_KEY: "test-key"
   before_script:
     - sudo apt-get update
-    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
-    - pip install -r backend/requirements.txt
-    - pip install pytest pytest-cov
+    - sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd python3-pip
+    - sudo pip3 install -r backend/requirements.txt
+    - sudo pip3 install pytest pytest-cov
     # Wait for users_db
     - |
       echo "Waiting for users_db..."
