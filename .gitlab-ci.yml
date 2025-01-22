@@ -16,6 +16,7 @@ test_app:
     SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@users_db/users_db","auth_db":"mysql+pymysql://root:root_password@auth_db/auth_db"}'
     SECRET_KEY: "test-key"
   services:
+    - name: docker:dind
     - name: mysql:5.7
       alias: users_db
       variables:
@@ -81,6 +82,8 @@ deploy:
   image: docker:latest
   tags:
     - docker
+  variables:
+    DOCKER_HOST: unix:///var/run/docker.sock
   before_script:
     - apk add --no-cache docker-compose
     - cd /builds/annuaire/backend-ssi/backend
