@@ -24,15 +24,15 @@ services:
   before_script:
     - echo "Starting setup..."
     # Install dependencies
-    - apt-get update && apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
+    - apt-get update && apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd sudo
     - pip install -r backend/requirements.txt
     - pip install pytest pytest-cov
     # Debug networking
     - echo "Checking service environment variables..."
     - env | grep MYSQL
-    # Add entries to /etc/hosts if needed
-    - echo "127.0.0.1 mysql-users" >> /etc/hosts
-    - echo "127.0.0.1 mysql-auth" >> /etc/hosts
+    # Add entries to /etc/hosts with sudo
+    - sudo bash -c 'echo "127.0.0.1 mysql-users" >> /etc/hosts'
+    - sudo bash -c 'echo "127.0.0.1 mysql-auth" >> /etc/hosts'
     # Wait for MySQL services
     - |
       echo "Waiting for MySQL services..."
