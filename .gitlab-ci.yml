@@ -86,7 +86,7 @@ deploy:
     DOCKER_HOST: unix:///var/run/docker.sock
   before_script:
     - apk add --no-cache docker-compose
-    - cd ~/builds/annuaire/backend-ssi/backend
+    - cd /home/projet/builds/annuaire/backend-ssi/backend
   script:
     - docker-compose down --remove-orphans || true
     - docker-compose up -d --build
