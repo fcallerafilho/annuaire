@@ -209,7 +209,9 @@ class UserService:
                     "username": user.username,
                     "role": user.role.value,
                     "first_name": auth.first_name,
-                    "last_name": auth.last_name
+                    "last_name": auth.last_name,
+                    "adresse" : auth.adresse,
+                    "num_phone":auth.num_phone
                 })
         
         return result
