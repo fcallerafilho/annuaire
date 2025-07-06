@@ -5,7 +5,9 @@ on:
     branches: [main, develop, improved-password-handling]
   pull_request:
     branches: [main, develop]
+    # Also trigger when PRs are made TO the improved-password-handling branch
   workflow_dispatch:
+    # Allow manual triggering from any branch
 
 jobs:
   test:
@@ -70,9 +72,9 @@ jobs:
           done
           echo "auth_db is up"
 
-          # Create test databases
-          mysql -h localhost -P 3306 -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_users_db;"
-          mysql -h localhost -P 3307 -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_auth_db;"
+          # Create test databases with explicit TCP connection
+          mysql -h 127.0.0.1 -P 3306 -u root -proot_password --protocol=TCP -e "CREATE DATABASE IF NOT EXISTS test_users_db;"
+          mysql -h 127.0.0.1 -P 3307 -u root -proot_password --protocol=TCP -e "CREATE DATABASE IF NOT EXISTS test_auth_db;"
 
       - name: Run tests
         env:
