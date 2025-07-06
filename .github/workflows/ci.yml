@@ -73,8 +73,47 @@ jobs:
           echo "auth_db is up"
 
           # Create test databases with explicit TCP connection
-          mysql -h 127.0.0.1 -P 3306 -u root -proot_password --protocol=TCP -e "CREATE DATABASE IF NOT EXISTS test_users_db;"
-          mysql -h 127.0.0.1 -P 3307 -u root -proot_password --protocol=TCP -e "CREATE DATABASE IF NOT EXISTS test_auth_db;"
+          mysql -h 127.0.0.1 -P 3306 -u root -proot_password --protocol=TCP -e "CREATE DATABASE IF NOT EXISTS test_users_db;" || echo "Database creation failed, will be created by app"
+          mysql -h 127.0.0.1 -P 3307 -u root -proot_password --protocol=TCP -e "CREATE DATABASE IF NOT EXISTS test_auth_db;" || echo "Database creation failed, will be created by app"
+
+      - name: Create test configuration
+        run: |
+          # Create a test-specific conftest.py that uses environment variables
+          cat > backend/tests/conftest.py << 'EOF'
+          import pytest
+          import os
+          import json
+          from app import create_app, db
+
+          @pytest.fixture
+          def app():
+              app = create_app()
+              
+              # Use environment variables for database connections
+              test_db_uri = os.environ.get('SQLALCHEMY_DATABASE_URI')
+              test_binds_str = os.environ.get('SQLALCHEMY_BINDS')
+              test_binds = json.loads(test_binds_str) if test_binds_str else {}
+              
+              app.config.update({
+                  'TESTING': True,
+                  'SQLALCHEMY_DATABASE_URI': test_db_uri,
+                  'SQLALCHEMY_BINDS': test_binds
+              })
+              
+              with app.app_context():
+                  db.create_all()
+                  yield app
+                  db.session.remove()
+                  db.drop_all()
+
+          @pytest.fixture
+          def client(app):
+              return app.test_client()
+
+          @pytest.fixture
+          def runner(app):
+              return app.test_cli_runner()
+          EOF
 
       - name: Run tests
         env:
