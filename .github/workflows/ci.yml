@@ -2,12 +2,10 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, improved-password-handling]
   pull_request:
     branches: [main, develop]
-    # Also trigger when PRs are made TO the improved-password-handling branch
   workflow_dispatch:
-    # Allow manual triggering from any branch
 
 jobs:
   test:
@@ -51,14 +49,14 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd
+          sudo apt-get install -y default-libmysqlclient-dev build-essential netcat-openbsd mysql-client
 
       - name: Install Python dependencies
         run: |
           pip install -r backend/requirements.txt
           pip install pytest pytest-cov
 
-      - name: Wait for databases
+      - name: Wait for databases and create test databases
         run: |
           echo "Waiting for users_db..."
           while ! nc -z localhost 3306; do
@@ -72,19 +70,25 @@ jobs:
           done
           echo "auth_db is up"
 
+          # Create test databases
+          mysql -h localhost -P 3306 -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_users_db;"
+          mysql -h localhost -P 3307 -u root -proot_password -e "CREATE DATABASE IF NOT EXISTS test_auth_db;"
+
       - name: Run tests
         env:
-          SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@localhost:3306/users_db"
-          SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@localhost:3306/users_db","auth_db":"mysql+pymysql://root:root_password@localhost:3307/auth_db"}'
+          SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@localhost:3306/test_users_db"
+          SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@localhost:3306/test_users_db","auth_db":"mysql+pymysql://root:root_password@localhost:3307/test_auth_db"}'
           SECRET_KEY: "test-key"
+          TESTING: "true"
         run: |
           python -m pytest backend/tests/ -v
 
       - name: Run coverage
         env:
-          SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@localhost:3306/users_db"
-          SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@localhost:3306/users_db","auth_db":"mysql+pymysql://root:root_password@localhost:3307/auth_db"}'
+          SQLALCHEMY_DATABASE_URI: "mysql+pymysql://root:root_password@localhost:3306/test_users_db"
+          SQLALCHEMY_BINDS: '{"users_db":"mysql+pymysql://root:root_password@localhost:3306/test_users_db","auth_db":"mysql+pymysql://root:root_password@localhost:3307/test_auth_db"}'
           SECRET_KEY: "test-key"
+          TESTING: "true"
         run: |
           python -m pytest backend/tests/ --cov=app --cov-report=term-missing --cov-report=xml
 
