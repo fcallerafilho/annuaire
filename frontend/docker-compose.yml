@@ -1,0 +1,12 @@
+version: "3"
+services:
+ frontend:
+    build: .  
+    ports:
+      - "3030:80" 
+    restart: always
+    networks:
+      - app-network
+networks:
+  app-network:
+    driver: bridge
