@@ -165,7 +165,34 @@ jobs:
           SECRET_KEY: "test-key"
           TESTING: "true"
         run: |
-          cd backend && python -m pytest tests/ -v
+          cd backend
+          # Create a script to initialize the admin user for tests
+          cat > init_test_admin.py << 'EOF'
+          from app import create_app, db
+          from app.models.user import User, UserRole
+          from app.services.user_service import UserService
+
+          app = create_app()
+          with app.app_context():
+              if User.query.count() == 0:
+                  user_service = UserService()
+                  user_service.create_user(
+                      username='admin',
+                      first_name='Admin',
+                      last_name='User',
+                      password='admin123',
+                      adresse='123 Admin St',
+                      num_phone='1234567890',
+                      role=UserRole.admin
+                  )
+                  print("Test admin user created successfully!")
+          EOF
+
+          # Run the admin creation script
+          python init_test_admin.py
+
+          # Now run the tests
+          python -m pytest tests/ -v
 
       - name: Run coverage
         env:
