@@ -8,7 +8,7 @@ The system implements JWT token-based authentication, role-based authorization, 
 
 Security monitoring logs all security-relevant events including user login attempts both successful and failed, password changes, role modifications, user creation and deletion, and API access patterns. Logs were structured for easy integration with security monitoring tools.
 
-## CI/CD Pipeline
+## CI Pipeline
 
 The GitHub Actions pipeline automatically sets up the test environment with Python 3.8 and MySQL services, installs dependencies including system libraries, waits for database availability before running tests, creates test databases with proper isolation, runs the complete test suite with detailed output, and generates coverage reports showing code coverage metrics.
 
